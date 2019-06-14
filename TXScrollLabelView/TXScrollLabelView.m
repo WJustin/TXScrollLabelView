@@ -120,6 +120,8 @@ typedef NS_ENUM(NSInteger, TXScrollLabelType) {
 //传入参数是否为数组
 @property (assign, nonatomic) BOOL isArray;
 
+@property (assign, nonatomic) BOOL needScroll;
+
 @end
 
 @implementation TXScrollLabelView
@@ -212,19 +214,19 @@ typedef NS_ENUM(NSInteger, TXScrollLabelType) {
 }
 
 + (instancetype)scrollWithTitle:(NSString *)scrollTitle
-                       type:(TXScrollLabelViewType)scrollType
-                   velocity:(NSTimeInterval)scrollVelocity {
+                           type:(TXScrollLabelViewType)scrollType
+                       velocity:(NSTimeInterval)scrollVelocity {
     
     return [self scrollWithTitle:scrollTitle
-                        type:scrollType
-                    velocity:scrollVelocity
-                     options:UIViewAnimationOptionCurveEaseInOut];
+                            type:scrollType
+                        velocity:scrollVelocity
+                         options:UIViewAnimationOptionCurveEaseInOut];
 }
 
 + (instancetype)scrollWithTitle:(NSString *)scrollTitle
-                       type:(TXScrollLabelViewType)scrollType
-                   velocity:(NSTimeInterval)scrollVelocity
-                    options:(UIViewAnimationOptions)options {
+                           type:(TXScrollLabelViewType)scrollType
+                       velocity:(NSTimeInterval)scrollVelocity
+                        options:(UIViewAnimationOptions)options {
     
     return [self scrollWithTitle:scrollTitle
                             type:scrollType
@@ -234,10 +236,10 @@ typedef NS_ENUM(NSInteger, TXScrollLabelType) {
 }
 
 + (instancetype)scrollWithTitle:(NSString *)scrollTitle
-                       type:(TXScrollLabelViewType)scrollType
-                   velocity:(NSTimeInterval)scrollVelocity
-                    options:(UIViewAnimationOptions)options
-                      inset:(UIEdgeInsets)inset {
+                           type:(TXScrollLabelViewType)scrollType
+                       velocity:(NSTimeInterval)scrollVelocity
+                        options:(UIViewAnimationOptions)options
+                          inset:(UIEdgeInsets)inset {
     
     return [[self alloc] initWithTitle:scrollTitle
                                   type:scrollType
@@ -276,7 +278,7 @@ typedef NS_ENUM(NSInteger, TXScrollLabelType) {
 
 - (void)setScrollTitle:(NSString *)scrollTitle {
     _scrollTitle = scrollTitle;
-//    self.scrollArray = nil;
+    //    self.scrollArray = nil;
     [self resetScrollLabelView];
 }
 
@@ -444,9 +446,19 @@ typedef NS_ENUM(NSInteger, TXScrollLabelType) {
     CGFloat labelMaxW = 0;//无限宽
     CGFloat labelH = labelMaxH;//label实际高度
     __block CGFloat labelW = 0;//label宽度，有待计算
-    self.contentOffset = CGPointZero;
+    
     [self setupLRUDTypeLayoutWithMaxSize:CGSizeMake(labelMaxW, labelMaxH) width:labelW height:labelH completedHandler:^(CGSize size) {
         labelW = MAX(size.width, self.tx_width);
+        if (size.width < self.tx_width) {
+            [self endScrolling];
+            self.needScroll = NO;
+            self.contentOffset = CGPointMake(0, self.contentOffset.y);
+            self.upLabel.textAlignment = NSTextAlignmentLeft;
+        } else {
+            [self beginScrolling];
+            self.needScroll = YES;
+            self.upLabel.textAlignment = NSTextAlignmentCenter;
+        }
         //开始布局
         self.upLabel.frame = CGRectMake(_scrollInset.left, 0, labelW, labelH);
         //由于 TXScrollLabelViewTypeLeftRight\UpDown 类型 X\Y 值均不一样，此处不再block中处理！
@@ -569,6 +581,9 @@ typedef NS_ENUM(NSInteger, TXScrollLabelType) {
 }
 
 - (void)startup {
+    if (!self.needScroll && self.scrollType == TXScrollLabelViewTypeLeftRight) {
+        return;
+    }
     if (!self.scrollTitle.length && !self.scrollArray.count) return;
     
     [self endup];
@@ -586,10 +601,10 @@ typedef NS_ENUM(NSInteger, TXScrollLabelType) {
 
 //开始计时
 - (void)startWithVelocity:(NSTimeInterval)velocity {
-//    if (!self.scrollTitle.length) return;
+    //    if (!self.scrollTitle.length) return;
     
     if (!self.scrollTitle.length && self.scrollArray.count) return;
-
+    
     __weak typeof(self) weakSelf = self;
     self.scrollTimer = [NSTimer tx_scheduledTimerWithTimeInterval:velocity repeat:YES block:^(NSTimer *timer) {
         TXScrollLabelView *strongSelf = weakSelf;
@@ -624,7 +639,7 @@ typedef NS_ENUM(NSInteger, TXScrollLabelType) {
 #pragma mark - ScrollLabelView + Methods
 
 - (void)updateScrollingType_LeftRight {
-
+    
     if (self.contentOffset.x >= (_scrollInset.left + self.upLabel.tx_width + self.scrollSpace)) {
         /** 更新 Label.text */
         if ((self.contentOffset.x > (_scrollInset.left + self.upLabel.tx_width) - self.tx_width) &&
@@ -694,7 +709,7 @@ typedef NS_ENUM(NSInteger, TXScrollLabelType) {
 
 /**
  Execute flip animation.
-
+ 
  @param delay animation duration.
  */
 - (void)flipNoCleAnimationWithDelay:(NSTimeInterval)delay {
@@ -712,7 +727,7 @@ void (*setter)(id, SEL, NSString *, TXScrollLabelType);
 - (void)updateTextForScrollViewWithSEL:(SEL)sel {
     
     if (!self.scrollArray.count) return;
-
+    
     /** 更新文本 */
     [self updateScrollText];
     /** 执行 SEL */
